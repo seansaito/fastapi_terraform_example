@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: pip install uv
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --extra dev
+      - name: Run backend tests
+        working-directory: backend
+        env:
+          DATABASE_URL: "sqlite:///./ci.db"
+          JWT_SECRET: "ci-secret"
+          ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+          CORS_ORIGINS: "http://localhost"
+        run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install
+      - name: Run frontend tests
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8000
+        run: pnpm test

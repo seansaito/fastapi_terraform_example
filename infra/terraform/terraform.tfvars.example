@@ -1,0 +1,13 @@
+subscription_id          = "00000000-0000-0000-0000-000000000000"
+tenant_id                = "00000000-0000-0000-0000-000000000000"
+prefix                   = "azuretodo"
+environment              = "dev"
+location                 = "japaneast"
+container_image          = "azuretodoregistry.azurecr.io/todo-api:latest"
+acr_name                 = "azuretodoregistry"
+acr_resource_group       = "rg-azuretodo-dev"
+postgres_admin_password  = "changeMe123!"
+postgres_admin_login     = "todo_admin"
+frontend_sku             = "Standard"
+custom_domain            = ""
+enable_container_registry = false

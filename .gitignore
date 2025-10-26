@@ -1,0 +1,67 @@
+# ----- Python -----
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+pip-log.txt
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+*.env
+*.env.*
+.envrc
+
+# Node / frontend
+node_modules/
+.pnpm-debug.log*
+dist/
+.vite/
+
+# Tool caches and reports
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.pyre/
+.ruff_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / IDE noise
+.DS_Store
+.vscode/
+
+# ----- Terraform -----
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+terraform.tfvars.json
+.terraformrc
+terraform.rc
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.cursor/rules/snyk_rules.mdc
