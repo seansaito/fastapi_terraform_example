@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { AxiosHeaders } from 'axios'
 import { env } from '@/lib/env'
 import { getRequestId } from '@/lib/request-id'
 
@@ -20,16 +20,15 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = tokenGetter?.()
+  const headers = AxiosHeaders.from(config.headers ?? {})
+
   if (token) {
-    config.headers = {
-      ...config.headers,
-      Authorization: `Bearer ${token}`,
-    }
+    headers.set('Authorization', `Bearer ${token}`)
   }
-  config.headers = {
-    'x-request-id': getRequestId(),
-    ...config.headers,
-  }
+
+  headers.set('x-request-id', getRequestId())
+
+  config.headers = headers
   return config
 })
 

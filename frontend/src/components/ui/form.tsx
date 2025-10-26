@@ -52,14 +52,13 @@ const FormDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
 ))
 FormDescription.displayName = 'FormDescription'
 
-const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(({ className, children, ...props }, ref) => {
-  const body = children ? children : props?.children
-  return (
+const FormMessage = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, children, ...props }, ref) => (
     <p ref={ref} className={cn('text-sm font-medium text-destructive', className)} {...props}>
-      {body}
+      {children}
     </p>
   )
-})
+)
 FormMessage.displayName = 'FormMessage'
 
 export { Form, FormField, FormItem, FormLabel, FormControl, FormDescription, FormMessage }

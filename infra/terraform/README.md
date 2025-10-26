@@ -46,12 +46,10 @@ terraform apply
 
 ### Build & Push the Backend Image
 
-Container Apps currently run on linux/amd64 – make sure the backend image is pushed with that architecture before applying Terraform:
+Container Apps currently run on linux/amd64 – make sure the backend image is pushed with that architecture before applying Terraform. The helper script wraps the required `docker buildx` invocation:
 
 ```bash
-az acr login --name <acr-name>
-docker buildx build --platform linux/amd64 \
-  -t <acr-name>.azurecr.io/todo-api:latest backend --push
+./scripts/build_and_push_backend.sh --acr-name <acr-name>
 ```
 
 ### Variables of Interest
@@ -77,8 +75,7 @@ docker buildx build --platform linux/amd64 \
 
 1. Upload frontend assets to the storage account (from repo root):
    ```bash
-   pnpm --dir frontend build
-   az storage blob upload-batch -s frontend/dist -d '$web' --account-name <storage_account>
+   ./scripts/deploy_frontend.sh --storage-account <storage_account>
    ```
 2. Update DNS if `custom_domain` is set (create CNAME pointing to storage endpoint).
 3. Push backend images to your registry and update `container_image` before re-running `terraform apply` for new releases.

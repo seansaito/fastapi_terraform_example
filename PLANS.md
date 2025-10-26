@@ -54,6 +54,10 @@ Deliver a demo-quality app that lets a signed-in user manage to-dos from a respo
 
 ## Plan of Work
 
+### Current Focus (2025-10-27)
+- [x] Phase 5 – Add helper scripts for backend image builds/pushes and frontend static uploads, including Azure CLI login guidance.
+- [x] Phase 6 – Flesh out README + docs/architecture.md with deployment workflow, environment variables, and diagrams/notes.
+
 ### Phase 0 – Prereqs & Repo Scaffolding
 1. Add `README.md`, `docs/architecture.md`, `.env.example`, backend/frontend `.env` templates.
 2. Decide package managers (`pnpm` frontend, `uv` backend). Document installation commands.
@@ -212,14 +216,14 @@ terraform apply -var-file=terraform.tfvars
 ### Deployment Steps
 1. Build backend image and push to ACR:
    ```bash
-   az acr login --name <acr_name>
-   az acr build --registry <acr_name> --image todo-api:$(git rev-parse --short HEAD) backend
+   ./scripts/build_and_push_backend.sh --acr-name <acr_name>
    ```
+   (Override `--tag` or `--image-name` as needed and update `container_image` in `terraform.tfvars`.)
 2. Build frontend and upload to Static Web/Storage:
    ```bash
-   cd frontend && pnpm build
-   az storage blob upload-batch -d '$web' -s dist --account-name <storage_account>
+   ./scripts/deploy_frontend.sh --storage-account <storage_account>
    ```
+   Pass `--no-build` if `frontend/dist` already exists.
 3. Rerun `terraform apply` to reference new artifact tags/urls.
 
 ---
@@ -337,3 +341,4 @@ Add future decisions below with the same template.
 - 2024-05-07: Completed Phase 2 frontend scaffold with auth/todo flows, theming, tests, and updated docs (Codex).
 - 2024-05-07: Added GitHub Actions CI, docker-compose stack, and README/plan updates for Phase 3 integration (Codex).
 - 2025-10-26: Infra fix – Container App now references the registry login server, linux/amd64 backend image pushed, and `terraform apply` succeeds end-to-end (Codex).
+- 2025-10-27: Delivered Phase 5/6 artifacts – deployment helper scripts, Azure deployment docs, and refreshed architecture overview (Codex).

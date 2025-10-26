@@ -55,6 +55,36 @@ scripts/    # Helper scripts (build/push images, seed data, etc.)
    docker compose down -v
    ```
 
+## Deploying to Azure
+
+1. **Authenticate** – run `az login` and `az account set --subscription <id>`.
+2. **Bootstrap remote state (first time only)**:
+   ```bash
+   RESOURCE_GROUP=rg-azuretodo-dev \
+   LOCATION=japaneast \
+   STORAGE_ACCOUNT=azuretodotfstate \
+   CONTAINER=tfstate \
+   ./scripts/bootstrap_tf_state.sh
+   ```
+3. **Configure Terraform** – copy `infra/terraform/terraform.tfvars.example` to `terraform.tfvars`, filling in subscription/tenant IDs, `container_image`, Postgres admin credentials, and ACR metadata.
+4. **Build & push the backend image** (ships linux/amd64 for Container Apps):
+   ```bash
+   ./scripts/build_and_push_backend.sh --acr-name <acr-name>
+   ```
+   Override `--image-name`/`--tag` if you need custom values; the script pushes both the git SHA and `latest` tags.
+5. **Provision infrastructure**:
+   ```bash
+   (cd infra/terraform && terraform init -backend-config=... && terraform plan && terraform apply)
+   ```
+   Terraform outputs include the API FQDN, frontend endpoint, Key Vault, and Postgres hostnames.
+6. **Upload the frontend**:
+   ```bash
+   ./scripts/deploy_frontend.sh --storage-account <storage-account>
+   ```
+   Pass `--no-build` if you already have `frontend/dist`; `--resource-group`/`--subscription` forward to Azure CLI calls.
+
+Subsequent releases typically run steps 4–6. Update `container_image` in `terraform.tfvars` whenever you push a new backend tag.
+
 ## Continuous Integration
 
 GitHub Actions workflow `.github/workflows/ci.yml` executes on every push/PR to `main`:
@@ -67,7 +97,7 @@ Fix failing jobs locally using the same commands before pushing changes.
 
 - `PLANS.md` – living ExecPlan describing the full build.
 - `AGENTS.md` – orientation + working agreements.
-- `docs/architecture.md` – broader design/diagrams (to be completed).
+- `docs/architecture.md` – architecture overview + deployment workflow diagram.
 - `infra/terraform/README.md` – Infrastructure-as-code usage + deployment notes.
 - `scripts/bootstrap_tf_state.sh` – helper to create Terraform remote state RG/storage/container.
 

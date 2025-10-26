@@ -14,7 +14,7 @@ const schema = z.object({
 })
 
 type Props = {
-  onSubmit: (input: { title: string; description?: string }) => Promise<void>
+  onSubmit: (input: { title: string; description?: string }) => Promise<unknown>
 }
 
 export const TodoForm = ({ onSubmit }: Props) => {
