@@ -44,6 +44,16 @@ terraform plan
 terraform apply
 ```
 
+### Build & Push the Backend Image
+
+Container Apps currently run on linux/amd64 – make sure the backend image is pushed with that architecture before applying Terraform:
+
+```bash
+az acr login --name <acr-name>
+docker buildx build --platform linux/amd64 \
+  -t <acr-name>.azurecr.io/todo-api:latest backend --push
+```
+
 ### Variables of Interest
 
 | Variable | Description |

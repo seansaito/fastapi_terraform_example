@@ -322,6 +322,10 @@ terraform apply -var-file=terraform.tfvars
   Rationale: React Query handles optimistic CRUD syncing with the FastAPI API, while a focused auth context keeps token management and 401 recovery centralized; ShadCN primitives keep the UI consistent without relying on the CLI.
   Date/Author: 2024-05-07/Codex
 
+- Decision: Container Apps use the managed identity + ACR login server for image pulls, and backend images are built/pushed as linux/amd64.
+  Rationale: Without passing the registry server Terraform could not create the Container App, and Azure requires amd64 images for Container Apps.
+  Date/Author: 2025-10-26/Codex
+
 Add future decisions below with the same template.
 
 ---
@@ -332,3 +336,4 @@ Add future decisions below with the same template.
 - 2024-05-06: Executed Phase 0 + Phase 1 backend scope; updated Outcomes (Codex).
 - 2024-05-07: Completed Phase 2 frontend scaffold with auth/todo flows, theming, tests, and updated docs (Codex).
 - 2024-05-07: Added GitHub Actions CI, docker-compose stack, and README/plan updates for Phase 3 integration (Codex).
+- 2025-10-26: Infra fix – Container App now references the registry login server, linux/amd64 backend image pushed, and `terraform apply` succeeds end-to-end (Codex).
