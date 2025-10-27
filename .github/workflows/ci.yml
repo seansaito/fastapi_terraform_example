@@ -281,13 +281,15 @@ jobs:
 
           if az keyvault secret show --vault-name "${key_vault}" --name "jwt-secret" >/dev/null 2>&1; then
             if ! terraform state show azurerm_key_vault_secret.jwt >/dev/null 2>&1; then
-              terraform import azurerm_key_vault_secret.jwt "https://${key_vault}.vault.azure.net/secrets/jwt-secret"
+              secret_id=$(az keyvault secret show --vault-name "${key_vault}" --name "jwt-secret" --query id -o tsv | tr -d '\r')
+              terraform import azurerm_key_vault_secret.jwt "$secret_id"
             fi
           fi
 
           if az keyvault secret show --vault-name "${key_vault}" --name "database-url" >/dev/null 2>&1; then
             if ! terraform state show azurerm_key_vault_secret.database_url >/dev/null 2>&1; then
-              terraform import azurerm_key_vault_secret.database_url "https://${key_vault}.vault.azure.net/secrets/database-url"
+              secret_id=$(az keyvault secret show --vault-name "${key_vault}" --name "database-url" --query id -o tsv | tr -d '\r')
+              terraform import azurerm_key_vault_secret.database_url "$secret_id"
             fi
           fi
 
