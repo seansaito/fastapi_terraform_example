@@ -142,6 +142,20 @@ jobs:
             echo "IMAGE_SHA=$IMAGE_SHA"
           } >> "$GITHUB_ENV"
 
+      - name: Ensure Key Vault access for deploy principal
+        env:
+          ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        run: |
+          sp_object_id=$(az ad sp show --id "$ARM_CLIENT_ID" --query id -o tsv)
+          kv_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${KEY_VAULT}"
+          if [ -n "$sp_object_id" ]; then
+            if ! az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --query '[0]' -o tsv >/dev/null 2>&1; then
+              az role assignment create --assignee "$sp_object_id" --role "Key Vault Secrets Officer" --scope "$kv_scope"
+              sleep 30
+            fi
+          fi
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -250,19 +264,6 @@ jobs:
               if ! terraform state show module.container_app.azurerm_role_assignment.keyvault >/dev/null 2>&1; then
                 terraform import module.container_app.azurerm_role_assignment.keyvault "$kv_assignment"
               fi
-            fi
-          fi
-
-      - name: Ensure Key Vault access for deploy principal
-        env:
-          ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
-          ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
-        run: |
-          sp_object_id=$(az ad sp show --id "$ARM_CLIENT_ID" --query id -o tsv)
-          kv_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${KEY_VAULT}"
-          if [ -n "$sp_object_id" ]; then
-            if ! az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --query '[0]' -o tsv >/dev/null 2>&1; then
-              az role assignment create --assignee "$sp_object_id" --role "Key Vault Secrets Officer" --scope "$kv_scope"
             fi
           fi
 
