@@ -108,12 +108,18 @@ jobs:
       - name: Build and push backend image
         run: |
           az acr login --name "$ACR_NAME"
+          REGISTRY=$(echo "$ACR_LOGIN_SERVER" | tr '[:upper:]' '[:lower:]')
+          IMAGE_SHA="$REGISTRY/todo-api:${GITHUB_SHA}"
           docker buildx build \
             --platform linux/amd64 \
-            --tag "$ACR_LOGIN_SERVER/todo-api:${GITHUB_SHA}" \
-            --tag "$ACR_LOGIN_SERVER/todo-api:latest" \
+            --tag "$IMAGE_SHA" \
+            --tag "$REGISTRY/todo-api:latest" \
             --push \
             backend
+          {
+            echo "REGISTRY_SANITIZED=$REGISTRY"
+            echo "IMAGE_SHA=$IMAGE_SHA"
+          } >> "$GITHUB_ENV"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -132,7 +138,7 @@ jobs:
       - name: Terraform apply
         working-directory: infra/terraform
         env:
-          TF_VAR_container_image: ${{ secrets.ACR_LOGIN_SERVER }}/todo-api:${{ github.sha }}
+          TF_VAR_container_image: ${{ env.IMAGE_SHA }}
         run: terraform apply -auto-approve
 
       - name: Capture Terraform outputs
