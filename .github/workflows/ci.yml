@@ -82,6 +82,20 @@ jobs:
           echo "TF_VAR_environment=${TF_VAR_environment:-dev}" >> $GITHUB_ENV
           echo "TF_VAR_location=${TF_VAR_location:-japaneast}" >> $GITHUB_ENV
 
+      - name: Compute resource identifiers
+        run: |
+          sanitized_prefix=$(echo "${TF_VAR_prefix:-azuretodo}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
+          env_name=${TF_VAR_environment:-dev}
+          echo "SANITIZED_PREFIX=$sanitized_prefix" >> $GITHUB_ENV
+          echo "ENV_NAME=$env_name" >> $GITHUB_ENV
+          echo "RESOURCE_GROUP=rg-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+          echo "LOG_ANALYTICS=law-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+          echo "KEY_VAULT=kv-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+          echo "IDENTITY_NAME=uai-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+          echo "CONTAINER_ENV=env-api-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+          echo "CONTAINER_APP=api-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+          echo "POSTGRES_NAME=psql-${sanitized_prefix}-${env_name}" >> $GITHUB_ENV
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -157,15 +171,13 @@ jobs:
           TF_VAR_prefix: ${{ env.TF_VAR_prefix }}
           TF_VAR_environment: ${{ env.TF_VAR_environment }}
         run: |
-          sanitized_prefix=$(echo "${TF_VAR_prefix:-azuretodo}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
-          env_name=${TF_VAR_environment:-dev}
-          resource_group="rg-${sanitized_prefix}-${env_name}"
-          workspace="law-${sanitized_prefix}-${env_name}"
-          key_vault="kv-${sanitized_prefix}-${env_name}"
-          identity_name="uai-${sanitized_prefix}-${env_name}"
-          container_env="env-api-${sanitized_prefix}-${env_name}"
-          container_app="api-${sanitized_prefix}-${env_name}"
-          postgres_name="psql-${sanitized_prefix}-${env_name}"
+          resource_group="${RESOURCE_GROUP}"
+          workspace="${LOG_ANALYTICS}"
+          key_vault="${KEY_VAULT}"
+          identity_name="${IDENTITY_NAME}"
+          container_env="${CONTAINER_ENV}"
+          container_app="${CONTAINER_APP}"
+          postgres_name="${POSTGRES_NAME}"
           database_name="${POSTGRES_DB_NAME:-todoapp}"
 
           if ! terraform state show module.resource_group.azurerm_resource_group.this >/dev/null 2>&1; then
@@ -238,6 +250,19 @@ jobs:
               if ! terraform state show module.container_app.azurerm_role_assignment.keyvault >/dev/null 2>&1; then
                 terraform import module.container_app.azurerm_role_assignment.keyvault "$kv_assignment"
               fi
+            fi
+          fi
+
+      - name: Ensure Key Vault access for deploy principal
+        env:
+          ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+        run: |
+          sp_object_id=$(az ad sp show --id "$ARM_CLIENT_ID" --query id -o tsv)
+          kv_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${KEY_VAULT}"
+          if [ -n "$sp_object_id" ]; then
+            if ! az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --query '[0]' -o tsv >/dev/null 2>&1; then
+              az role assignment create --assignee "$sp_object_id" --role "Key Vault Secrets Officer" --scope "$kv_scope"
             fi
           fi
 
