@@ -32,6 +32,16 @@ graph TD
 4. **Upload Frontend** – `./scripts/deploy_frontend.sh --storage-account <name>` optionally rebuilds the Vite app (pnpm) and uses `az storage blob upload-batch` to sync `frontend/dist` into the `$web` container.
 5. **Smoke Test** – hit the API health probe (`/healthz`) via the Container App FQDN and load the static website endpoint to ensure it fetches todos successfully.
 
+### CI/CD Automation
+
+GitHub Actions handles the same lifecycle whenever changes land on `main`. After unit tests pass, the deployment job:
+- builds/pushes the backend container to ACR (tagged with the commit SHA),
+- runs Terraform (remote Azure Storage backend) with the new image reference,
+- executes Alembic migrations against the managed PostgreSQL instance using psycopg v3, and
+- compiles the Vite frontend before uploading the assets to the static website.
+
+GitHub secrets store the Azure service-principal credentials, ACR/Storage identifiers, Terraform backend coordinates, and database admin credentials so the workflow can operate non-interactively.
+
 ## Observability & Operations
 
 - Structlog emits JSON with timestamps, log levels, and contextual metadata, enabling Log Analytics queries such as `AppPlatformLogs_CL | where ContainerAppName_s == "api-azuretodo-dev"`.

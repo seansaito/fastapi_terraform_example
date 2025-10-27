@@ -100,6 +100,35 @@ GitHub Actions workflow `.github/workflows/ci.yml` executes on every push/PR to 
 - Backend job installs dependencies via `uv` and runs `uv run pytest`.
 - Frontend job installs pnpm dependencies and runs `pnpm test`.
 
+On successful pushes to `main`, the `deploy` job runs and:
+- Builds a linux/amd64 backend image with Docker Buildx and pushes it to the configured ACR using the commit SHA for tagging.
+- Runs `terraform apply` (with remote state) so the Container App pulls the new image and updated environment settings.
+- Executes Alembic migrations against the managed PostgreSQL instance.
+- Builds the Vite frontend and uploads the assets to the `$web` container of the storage account via `az storage blob upload-batch --auth-mode login`.
+
+### Required GitHub secrets
+
+| Secret | Description |
+| --- | --- |
+| `AZURE_CREDENTIALS` | Service principal JSON (`az ad sp create-for-rbac --sdk-auth`) with permissions on the target subscription/resource group. |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription GUID used by Terraform and az cli. |
+| `AZURE_TENANT_ID` | Azure tenant GUID corresponding to the service principal. |
+| `ACR_NAME` / `ACR_LOGIN_SERVER` | Existing Azure Container Registry name (e.g. `azuretodoregistry`) and login server (`azuretodoregistry.azurecr.io`). |
+| `ACR_RESOURCE_GROUP` | Resource group that houses the ACR instance. |
+| `TF_VAR_PREFIX` | Resource name prefix used by Terraform (e.g. `azuretodo`). |
+| `TF_STATE_RESOURCE_GROUP` | Resource group hosting the Terraform remote state storage account. |
+| `TF_STATE_STORAGE_ACCOUNT` | Storage account name for Terraform state. |
+| `TF_STATE_CONTAINER` | Blob container name for Terraform state (e.g. `tfstate`). |
+| `TF_STATE_KEY` | Blob key used for this workspace’s state file (e.g. `azure-todo-dev.tfstate`). |
+| `POSTGRES_ADMIN_LOGIN` / `POSTGRES_ADMIN_PASSWORD` | Flexible Server admin username and password injected into Terraform and migrations. |
+| `POSTGRES_DB_NAME` | Logical database name (defaults to `todoapp`). |
+| `STORAGE_ACCOUNT` | Storage account used for the Static Website hosting the frontend. |
+
+Optional secrets:
+- `TF_VAR_custom_domain` if you configure a custom hostname for the static site.
+
+The deployment job expects Terraform backend access and Azure CLI operations to succeed using the supplied service principal. Ensure the account has `Contributor` (or more restrictive, appropriately-scoped) rights on the resource group(s) hosting the stack.
+
 Fix failing jobs locally using the same commands before pushing changes.
 
 ## Documentation
