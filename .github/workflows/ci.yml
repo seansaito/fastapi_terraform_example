@@ -71,6 +71,8 @@ jobs:
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
       TF_VAR_container_image: ${{ secrets.ACR_LOGIN_SERVER }}/todo-api:${{ github.sha }}
+      TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
+      TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
       POSTGRES_DB_NAME: ${{ secrets.POSTGRES_DB_NAME }}
     steps:
       - uses: actions/checkout@v4
@@ -153,8 +155,85 @@ jobs:
           sanitized_prefix=$(echo "${TF_VAR_prefix:-azuretodo}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
           env_name=${TF_VAR_environment:-dev}
           resource_group="rg-${sanitized_prefix}-${env_name}"
+          workspace="law-${sanitized_prefix}-${env_name}"
+          key_vault="kv-${sanitized_prefix}-${env_name}"
+          identity_name="uai-${sanitized_prefix}-${env_name}"
+          container_env="env-api-${sanitized_prefix}-${env_name}"
+          container_app="api-${sanitized_prefix}-${env_name}"
+          postgres_name="psql-${sanitized_prefix}-${env_name}"
+          database_name="${POSTGRES_DB_NAME:-todoapp}"
+
           if ! terraform state show module.resource_group.azurerm_resource_group.this >/dev/null 2>&1; then
             terraform import module.resource_group.azurerm_resource_group.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}"
+          fi
+
+          if ! terraform state show module.log_analytics.azurerm_log_analytics_workspace.this >/dev/null 2>&1; then
+            terraform import module.log_analytics.azurerm_log_analytics_workspace.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.OperationalInsights/workspaces/${workspace}"
+          fi
+
+          if ! terraform state show module.key_vault.azurerm_key_vault.this >/dev/null 2>&1; then
+            terraform import module.key_vault.azurerm_key_vault.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.KeyVault/vaults/${key_vault}"
+          fi
+
+          if az identity show --name "${identity_name}" --resource-group "${resource_group}" >/dev/null 2>&1; then
+            if ! terraform state show azurerm_user_assigned_identity.container_app >/dev/null 2>&1; then
+              terraform import azurerm_user_assigned_identity.container_app "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${identity_name}"
+            fi
+          fi
+
+          if az postgres flexible-server show --name "${postgres_name}" --resource-group "${resource_group}" >/dev/null 2>&1; then
+            if ! terraform state show module.postgres.azurerm_postgresql_flexible_server.this >/dev/null 2>&1; then
+              terraform import module.postgres.azurerm_postgresql_flexible_server.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${postgres_name}"
+            fi
+            if ! terraform state show module.postgres.azurerm_postgresql_flexible_server_database.this >/dev/null 2>&1; then
+              terraform import module.postgres.azurerm_postgresql_flexible_server_database.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${postgres_name}/databases/${database_name}"
+            fi
+            if ! terraform state show module.postgres.azurerm_postgresql_flexible_server_firewall_rule.azure_services >/dev/null 2>&1; then
+              terraform import module.postgres.azurerm_postgresql_flexible_server_firewall_rule.azure_services "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.DBforPostgreSQL/flexibleServers/${postgres_name}/firewallRules/allow-azure-services"
+            fi
+          fi
+
+          if [ -n "${STORAGE_ACCOUNT}" ]; then
+            if az storage account show --name "${STORAGE_ACCOUNT}" --resource-group "${resource_group}" >/dev/null 2>&1; then
+              if ! terraform state show module.static_site.azurerm_storage_account.this >/dev/null 2>&1; then
+                terraform import module.static_site.azurerm_storage_account.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.Storage/storageAccounts/${STORAGE_ACCOUNT}"
+              fi
+            fi
+          fi
+
+          if az containerapp env show --name "${container_env}" --resource-group "${resource_group}" >/dev/null 2>&1; then
+            if ! terraform state show module.container_app.azurerm_container_app_environment.this >/dev/null 2>&1; then
+              terraform import module.container_app.azurerm_container_app_environment.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/managedEnvironments/${container_env}"
+            fi
+          fi
+
+          if az containerapp show --name "${container_app}" --resource-group "${resource_group}" >/dev/null 2>&1; then
+            if ! terraform state show module.container_app.azurerm_container_app.this >/dev/null 2>&1; then
+              terraform import module.container_app.azurerm_container_app.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.App/containerApps/${container_app}"
+            fi
+          fi
+
+          identity_principal_id=""
+          if az identity show --name "${identity_name}" --resource-group "${resource_group}" >/dev/null 2>&1; then
+            identity_principal_id=$(az identity show --name "${identity_name}" --resource-group "${resource_group}" --query principalId -o tsv | tr -d '\r')
+          fi
+
+          if [ -n "$identity_principal_id" ]; then
+            acr_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${TF_VAR_acr_resource_group:-${resource_group}}/providers/Microsoft.ContainerRegistry/registries/${ACR_NAME}"
+            acr_assignment=$(az role assignment list --assignee "$identity_principal_id" --scope "$acr_scope" --query "[0].id" -o tsv | tr -d '\r')
+            if [ -n "$acr_assignment" ]; then
+              if ! terraform state show azurerm_role_assignment.container_app_acr >/dev/null 2>&1; then
+                terraform import azurerm_role_assignment.container_app_acr "$acr_assignment"
+              fi
+            fi
+
+            kv_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}/providers/Microsoft.KeyVault/vaults/${key_vault}"
+            kv_assignment=$(az role assignment list --assignee "$identity_principal_id" --scope "$kv_scope" --query "[0].id" -o tsv | tr -d '\r')
+            if [ -n "$kv_assignment" ]; then
+              if ! terraform state show module.container_app.azurerm_role_assignment.keyvault >/dev/null 2>&1; then
+                terraform import module.container_app.azurerm_role_assignment.keyvault "$kv_assignment"
+              fi
+            fi
           fi
 
       - name: Terraform apply
