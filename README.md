@@ -110,8 +110,8 @@ On successful pushes to `main`, the `deploy` job runs and:
 
 | Secret | Description |
 | --- | --- |
-| `AZURE_CREDENTIALS` | Service principal JSON (`az ad sp create-for-rbac --sdk-auth`) with permissions on the target subscription/resource group. |
-| `AZURE_SUBSCRIPTION_ID` | Azure subscription GUID used by Terraform and az cli. |
+| `AZURE_CREDENTIALS` | Service principal JSON (`az ad sp create-for-rbac --sdk-auth`) including `clientId`, `clientSecret`, `tenantId`, and `subscriptionId`. |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription GUID (must match `subscriptionId` in the credentials JSON). |
 | `AZURE_TENANT_ID` | Azure tenant GUID corresponding to the service principal. |
 | `ACR_NAME` / `ACR_LOGIN_SERVER` | Existing Azure Container Registry name (e.g. `azuretodoregistry`) and login server (`azuretodoregistry.azurecr.io`). |
 | `ACR_RESOURCE_GROUP` | Resource group that houses the ACR instance. |
