@@ -160,32 +160,35 @@ jobs:
           fi
 
           # Check if role assignment already exists
-          existing_assignment=$(az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --role "Key Vault Secrets Officer" --query '[0].id' -o tsv 2>/dev/null)
-          
+          existing_assignment=$(az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --role "Key Vault Secrets Officer" --query '[0].id' -o tsv 2>/dev/null | tr -d '\r')
+
+          assignment_ready=false
+
           if [ -z "$existing_assignment" ]; then
-            echo "Creating Key Vault Secrets Officer role assignment..."
-            az role assignment create --assignee "$sp_object_id" --role "Key Vault Secrets Officer" --scope "$kv_scope"
-            echo "Role assignment created. Waiting for RBAC propagation..."
-            # Give extra time for new role assignments to propagate
-            sleep 60
+            echo "No Key Vault Secrets Officer role assignment found for this principal yet. Terraform should create or import it during apply."
           else
             echo "Role assignment already exists: $existing_assignment"
+            assignment_ready=true
           fi
 
-          # Verify we can access Key Vault secrets
-          attempt=1
-          max_attempts=20
-          until az keyvault secret list --vault-name "$KEY_VAULT" --max-items 1 >/dev/null 2>&1; do
-            if [ $attempt -ge $max_attempts ]; then
-              echo "Key Vault RBAC not yet propagated after $attempt attempts ($(($max_attempts * 15)) seconds)" >&2
-              exit 1
-            fi
-            echo "Waiting for Key Vault RBAC propagation... (attempt $attempt/$max_attempts)" >&2
-            sleep 15
-            attempt=$((attempt+1))
-          done
-          
-          echo "Key Vault access verified successfully"
+          if [ "$assignment_ready" = true ]; then
+            # Verify we can access Key Vault secrets
+            attempt=1
+            max_attempts=20
+            until az keyvault secret list --vault-name "$KEY_VAULT" --max-items 1 >/dev/null 2>&1; do
+              if [ $attempt -ge $max_attempts ]; then
+                echo "Key Vault RBAC not yet propagated after $attempt attempts ($(($max_attempts * 15)) seconds)" >&2
+                exit 1
+              fi
+              echo "Waiting for Key Vault RBAC propagation... (attempt $attempt/$max_attempts)" >&2
+              sleep 15
+              attempt=$((attempt+1))
+            done
+
+            echo "Key Vault access verified successfully"
+          else
+            echo "Skipping Key Vault access verification because role assignment is not present yet. Terraform apply will create it." >&2
+          fi
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
