@@ -346,7 +346,9 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql+psycopg://${{ secrets.POSTGRES_ADMIN_LOGIN }}:${{ secrets.POSTGRES_ADMIN_PASSWORD }}@${{ steps.tf_outputs.outputs.postgres_fqdn }}:5432/${{ env.POSTGRES_DB_NAME }}?sslmode=require
-        run: uv run alembic upgrade head
+        run: |
+          export JWT_SECRET=$(az keyvault secret show --vault-name "$KEY_VAULT" --name jwt-secret --query value -o tsv)
+          uv run alembic upgrade head
 
       - name: Install frontend dependencies
         working-directory: frontend
