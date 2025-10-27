@@ -5,7 +5,7 @@ locals {
   key_vault_static_access_object_ids = distinct(
     compact(
       concat(
-        [coalesce(var.deploy_principal_object_id, data.azurerm_client_config.current.object_id)],
+        [data.azurerm_client_config.current.object_id],
         var.container_app_identity_principal_id == null || var.container_app_identity_principal_id == "" ? [] : [var.container_app_identity_principal_id],
         var.additional_key_vault_access_object_ids
       )
