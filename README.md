@@ -129,6 +129,8 @@ Optional secrets:
 
 The deployment job expects Terraform backend access and Azure CLI operations to succeed using the supplied service principal. Ensure the account has `Contributor` (or more restrictive, appropriately-scoped) rights on the resource group(s) hosting the stack.
 
+> **Note:** The workflow automatically imports the existing resource group into Terraform state if it is missing. The name is derived from the lowercased, alphanumeric prefix (e.g. `azuretodo`) and the environment (`dev` by default), producing `rg-azuretodo-dev`. If you change those values, keep the naming convention consistent.
+
 Fix failing jobs locally using the same commands before pushing changes.
 
 ## Documentation

@@ -140,6 +140,23 @@ jobs:
             -backend-config="container_name=${TF_BACKEND_CONTAINER}" \
             -backend-config="key=${TF_BACKEND_KEY}"
 
+      - name: Sync Terraform state
+        working-directory: infra/terraform
+        env:
+          ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+          ARM_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+          ARM_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+          ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
+          TF_VAR_prefix: ${{ env.TF_VAR_prefix }}
+          TF_VAR_environment: ${{ env.TF_VAR_environment }}
+        run: |
+          sanitized_prefix=$(echo "${TF_VAR_prefix:-azuretodo}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]//g')
+          env_name=${TF_VAR_environment:-dev}
+          resource_group="rg-${sanitized_prefix}-${env_name}"
+          if ! terraform state show module.resource_group.azurerm_resource_group.this >/dev/null 2>&1; then
+            terraform import module.resource_group.azurerm_resource_group.this "/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${resource_group}"
+          fi
+
       - name: Terraform apply
         working-directory: infra/terraform
         env:
