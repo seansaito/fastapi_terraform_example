@@ -126,6 +126,8 @@ On successful pushes to `main`, the `deploy` job runs and:
 
 Optional secrets:
 - `TF_VAR_custom_domain` if you configure a custom hostname for the static site.
+- `TF_VAR_ENVIRONMENT` to override the deployment environment (defaults to `dev`).
+- `TF_VAR_LOCATION` to override the Azure region (defaults to `japaneast`).
 
 The deployment job expects Terraform backend access and Azure CLI operations to succeed using the supplied service principal. Ensure the account has `Contributor` (or more restrictive, appropriately-scoped) rights on the resource group(s) hosting the stack.
 
