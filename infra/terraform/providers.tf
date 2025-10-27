@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 3.90"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.11"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -22,3 +26,5 @@ provider "azurerm" {
 }
 
 provider "random" {}
+
+provider "time" {}

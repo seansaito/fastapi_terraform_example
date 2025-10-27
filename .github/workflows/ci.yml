@@ -147,14 +147,45 @@ jobs:
           ARM_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
           ARM_SUBSCRIPTION_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).subscriptionId }}
         run: |
-          sp_object_id=$(az ad sp show --id "$ARM_CLIENT_ID" --query id -o tsv)
           kv_scope="/subscriptions/${ARM_SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.KeyVault/vaults/${KEY_VAULT}"
-          if [ -n "$sp_object_id" ]; then
-            if ! az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --query '[0]' -o tsv >/dev/null 2>&1; then
-              az role assignment create --assignee "$sp_object_id" --role "Key Vault Secrets Officer" --scope "$kv_scope"
-              sleep 30
-            fi
+          if ! az keyvault show --name "$KEY_VAULT" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+            echo "Key Vault '$KEY_VAULT' not found yet; skipping RBAC preflight until after provisioning."
+            exit 0
           fi
+
+          sp_object_id=$(az ad sp show --id "$ARM_CLIENT_ID" --query id -o tsv)
+          if [ -z "$sp_object_id" ]; then
+            echo "Unable to resolve service principal object id for $ARM_CLIENT_ID" >&2
+            exit 1
+          fi
+
+          # Check if role assignment already exists
+          existing_assignment=$(az role assignment list --assignee "$sp_object_id" --scope "$kv_scope" --role "Key Vault Secrets Officer" --query '[0].id' -o tsv 2>/dev/null)
+          
+          if [ -z "$existing_assignment" ]; then
+            echo "Creating Key Vault Secrets Officer role assignment..."
+            az role assignment create --assignee "$sp_object_id" --role "Key Vault Secrets Officer" --scope "$kv_scope"
+            echo "Role assignment created. Waiting for RBAC propagation..."
+            # Give extra time for new role assignments to propagate
+            sleep 60
+          else
+            echo "Role assignment already exists: $existing_assignment"
+          fi
+
+          # Verify we can access Key Vault secrets
+          attempt=1
+          max_attempts=20
+          until az keyvault secret list --vault-name "$KEY_VAULT" --max-items 1 >/dev/null 2>&1; do
+            if [ $attempt -ge $max_attempts ]; then
+              echo "Key Vault RBAC not yet propagated after $attempt attempts ($(($max_attempts * 15)) seconds)" >&2
+              exit 1
+            fi
+            echo "Waiting for Key Vault RBAC propagation... (attempt $attempt/$max_attempts)" >&2
+            sleep 15
+            attempt=$((attempt+1))
+          done
+          
+          echo "Key Vault access verified successfully"
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3

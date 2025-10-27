@@ -4,6 +4,8 @@ locals {
   common_tags       = merge(var.tags, { environment = var.environment })
 }
 
+data "azurerm_client_config" "current" {}
+
 data "azurerm_container_registry" "external" {
   name                = var.acr_name
   resource_group_name = var.acr_resource_group
@@ -43,6 +45,17 @@ module "key_vault" {
   tags                = local.common_tags
 }
 
+resource "azurerm_role_assignment" "key_vault_secrets_officer" {
+  scope                = module.key_vault.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "time_sleep" "wait_for_key_vault_rbac" {
+  depends_on      = [azurerm_role_assignment.key_vault_secrets_officer]
+  create_duration = "120s"
+}
+
 resource "azurerm_user_assigned_identity" "container_app" {
   name                = "uai-${local.normalized_prefix}-${local.name_suffix}"
   location            = var.location
@@ -77,12 +90,14 @@ resource "azurerm_key_vault_secret" "jwt" {
   name         = "jwt-secret"
   value        = random_password.jwt.result
   key_vault_id = module.key_vault.id
+  depends_on   = [time_sleep.wait_for_key_vault_rbac]
 }
 
 resource "azurerm_key_vault_secret" "database_url" {
   name         = "database-url"
   value        = module.postgres.connection_string
   key_vault_id = module.key_vault.id
+  depends_on   = [time_sleep.wait_for_key_vault_rbac]
 }
 
 module "static_site" {

@@ -319,6 +319,10 @@ terraform apply -var-file=terraform.tfvars
   Rationale: Container Apps support managed identities + secrets and scale-to-zero; Static Web Apps provide global CDN and easy integration.
   Date/Author: 2024-05-06/Codex
 
+- Decision: Grant the Terraform runner `Key Vault Secrets Officer` on provisioned vaults using RBAC assignments managed in Terraform.
+  Rationale: The CI service principal needs create/update privileges to manage secrets (`azurerm_key_vault_secret`) without manual role configuration.
+  Date/Author: 2025-10-27/Codex
+
 - Decision: Adopt pnpm + Vite for frontend and uv for backend dependency management.
   Rationale: pnpm is fast with workspace support; uv keeps Python deps reproducible without Poetry overhead.
   Date/Author: 2024-05-06/Codex
@@ -339,6 +343,10 @@ terraform apply -var-file=terraform.tfvars
   Rationale: Without passing the registry server Terraform could not create the Container App, and Azure requires amd64 images for Container Apps.
   Date/Author: 2025-10-26/Codex
 
+- Decision: Extended Key Vault RBAC propagation wait times in both GitHub Actions workflow (up to 5 minutes with verification) and Terraform (120s) to address 403 Forbidden errors when creating secrets.
+  Rationale: Azure RBAC can take several minutes to propagate, especially for Key Vault operations. The workflow now waits 60s after creating role assignments, then polls for up to 20 attempts (5 minutes total) to verify access. Terraform waits 120s before attempting secret operations.
+  Date/Author: 2025-10-27/Codex
+
 Add future decisions below with the same template.
 
 ---
@@ -352,3 +360,4 @@ Add future decisions below with the same template.
 - 2025-10-26: Infra fix – Container App now references the registry login server, linux/amd64 backend image pushed, and `terraform apply` succeeds end-to-end (Codex).
 - 2025-10-27: Delivered Phase 5/6 artifacts – deployment helper scripts, Azure deployment docs, and refreshed architecture overview (Codex).
 - 2025-10-27: Resolved production CORS + Postgres issues, introduced regex support, refreshed connection strings, and verified registration/login flows against Azure (Codex).
+- 2025-10-27: Fixed GitHub Actions CI workflow Key Vault RBAC propagation issues by extending wait times and adding verification polling. Increased Terraform time_sleep to 120s for more reliable secret creation (Codex).
