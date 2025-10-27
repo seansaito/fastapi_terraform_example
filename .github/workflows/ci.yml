@@ -71,11 +71,16 @@ jobs:
       TF_VAR_postgres_admin_login: ${{ secrets.POSTGRES_ADMIN_LOGIN }}
       TF_VAR_postgres_admin_password: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
       TF_VAR_container_image: ${{ secrets.ACR_LOGIN_SERVER }}/todo-api:${{ github.sha }}
-      TF_VAR_environment: ${{ coalesce(secrets.TF_VAR_ENVIRONMENT, 'dev') }}
-      TF_VAR_location: ${{ coalesce(secrets.TF_VAR_LOCATION, 'japaneast') }}
+      TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
+      TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
       POSTGRES_DB_NAME: ${{ secrets.POSTGRES_DB_NAME }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Apply environment defaults
+        run: |
+          echo "TF_VAR_environment=${TF_VAR_environment:-dev}" >> $GITHUB_ENV
+          echo "TF_VAR_location=${TF_VAR_location:-japaneast}" >> $GITHUB_ENV
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
