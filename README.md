@@ -77,11 +77,20 @@ scripts/    # Helper scripts (build/push images, seed data, etc.)
    (cd infra/terraform && terraform init -backend-config=... && terraform plan && terraform apply)
    ```
    Terraform outputs include the API FQDN, frontend endpoint, Key Vault, and Postgres hostnames.
-6. **Upload the frontend**:
+6. **Upload the frontend** (optionally overriding the API base URL with the Container App FQDN):
    ```bash
-   ./scripts/deploy_frontend.sh --storage-account <storage-account>
+   ./scripts/deploy_frontend.sh \
+     --storage-account <storage-account> \
+     --api-url https://<container-app-fqdn>
    ```
    Pass `--no-build` if you already have `frontend/dist`; `--resource-group`/`--subscription` forward to Azure CLI calls.
+7. **Run database migrations** (once per environment):
+   ```bash
+   cd backend
+   DATABASE_URL="postgresql+psycopg://<admin_login>:<admin_password>@<postgres_fqdn>:5432/<db_name>" \
+     uv run alembic upgrade head
+   ```
+   Grab the credentials from your Key Vault or Terraform outputs; append `?sslmode=require` if your policy enforces TLS.
 
 Subsequent releases typically run steps 4–6. Update `container_image` in `terraform.tfvars` whenever you push a new backend tag.
 

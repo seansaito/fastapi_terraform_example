@@ -85,6 +85,21 @@ resource "azurerm_key_vault_secret" "database_url" {
   key_vault_id = module.key_vault.id
 }
 
+module "static_site" {
+  source              = "./modules/static_site"
+  name                = "st${local.normalized_prefix}${local.name_suffix}"
+  resource_group_name = module.resource_group.name
+  location            = var.location
+  sku                 = var.frontend_sku
+  custom_domain       = var.custom_domain
+  tags                = local.common_tags
+}
+
+locals {
+  frontend_origin       = trimsuffix(module.static_site.endpoint, "/")
+  frontend_origin_regex = format("^%s$", replace(trimsuffix(module.static_site.endpoint, "/"), ".", "\\."))
+}
+
 module "container_app" {
   source                     = "./modules/container_app"
   name                       = "api-${local.normalized_prefix}-${local.name_suffix}"
@@ -96,8 +111,10 @@ module "container_app" {
   max_replicas               = var.containerapp_max_replicas
   registry_server            = data.azurerm_container_registry.external.login_server
   plain_env = {
-    APP_ENV   = var.environment
-    LOG_LEVEL = "INFO"
+    APP_ENV           = var.environment
+    LOG_LEVEL         = "INFO"
+    CORS_ORIGINS      = "http://localhost:5173,${local.frontend_origin}"
+    CORS_ORIGIN_REGEX = local.frontend_origin_regex
   }
   secret_env = {
     DATABASE_URL = azurerm_key_vault_secret.database_url.name
@@ -112,14 +129,4 @@ module "container_app" {
   user_assigned_identity_id = azurerm_user_assigned_identity.container_app.id
   tags                      = local.common_tags
   depends_on                = [azurerm_role_assignment.container_app_acr]
-}
-
-module "static_site" {
-  source              = "./modules/static_site"
-  name                = "st${local.normalized_prefix}${local.name_suffix}"
-  resource_group_name = module.resource_group.name
-  location            = var.location
-  sku                 = var.frontend_sku
-  custom_domain       = var.custom_domain
-  tags                = local.common_tags
 }

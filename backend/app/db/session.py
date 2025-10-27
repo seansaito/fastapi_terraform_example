@@ -17,7 +17,10 @@ def get_engine():
         connect_args = {}
         if settings.database_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
-        _engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
+        database_url = settings.database_url
+        if database_url.startswith("postgresql://"):
+            database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        _engine = create_engine(database_url, connect_args=connect_args, pool_pre_ping=True)
     return _engine
 
 

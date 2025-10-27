@@ -221,10 +221,19 @@ terraform apply -var-file=terraform.tfvars
    (Override `--tag` or `--image-name` as needed and update `container_image` in `terraform.tfvars`.)
 2. Build frontend and upload to Static Web/Storage:
    ```bash
-   ./scripts/deploy_frontend.sh --storage-account <storage_account>
+   ./scripts/deploy_frontend.sh \
+     --storage-account <storage_account> \
+     --api-url https://<container_app_fqdn>
    ```
    Pass `--no-build` if `frontend/dist` already exists.
-3. Rerun `terraform apply` to reference new artifact tags/urls.
+3. Run Alembic migrations against the managed Postgres instance:
+   ```bash
+   cd backend
+   DATABASE_URL="postgresql+psycopg://<admin_login>:<admin_password>@<postgres_fqdn>:5432/<db_name>" \
+     uv run alembic upgrade head
+   ```
+   Use the Terraform outputs/Key Vault secrets and add `?sslmode=require` if necessary.
+4. Rerun `terraform apply` to reference new artifact tags/urls.
 
 ---
 
@@ -342,3 +351,4 @@ Add future decisions below with the same template.
 - 2024-05-07: Added GitHub Actions CI, docker-compose stack, and README/plan updates for Phase 3 integration (Codex).
 - 2025-10-26: Infra fix – Container App now references the registry login server, linux/amd64 backend image pushed, and `terraform apply` succeeds end-to-end (Codex).
 - 2025-10-27: Delivered Phase 5/6 artifacts – deployment helper scripts, Azure deployment docs, and refreshed architecture overview (Codex).
+- 2025-10-27: Resolved production CORS + Postgres issues, introduced regex support, refreshed connection strings, and verified registration/login flows against Azure (Codex).

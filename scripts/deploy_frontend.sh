@@ -15,6 +15,7 @@ Optional:
   --container <name>         Destination container (default: $web)
   --resource-group <name>    Storage account resource group (used for az storage account show)
   --subscription <id>        Azure subscription to target (passes through to az commands)
+  --api-url <url>            Override Vite VITE_API_BASE_URL during build
   -h, --help                 Show this help message
 
 Prerequisites:
@@ -32,6 +33,7 @@ RUN_BUILD=true
 CONTAINER="\$web"
 RESOURCE_GROUP=""
 SUBSCRIPTION=""
+API_URL=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -63,6 +65,10 @@ while [[ $# -gt 0 ]]; do
       SUBSCRIPTION="${2:-}"
       shift 2
       ;;
+    --api-url)
+      API_URL="${2:-}"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -86,7 +92,12 @@ DIST_PATH="${DIST_PATH:-${REPO_ROOT}/frontend/dist}"
 
 if [[ "$RUN_BUILD" == true ]]; then
   echo "Building frontend with pnpm..."
-  pnpm --dir "${REPO_ROOT}/frontend" build
+  if [[ -n "$API_URL" ]]; then
+    echo "Using API base URL: $API_URL"
+    (cd "${REPO_ROOT}/frontend" && VITE_API_BASE_URL="$API_URL" pnpm build)
+  else
+    pnpm --dir "${REPO_ROOT}/frontend" build
+  fi
 fi
 
 if [[ ! -d "$DIST_PATH" ]]; then

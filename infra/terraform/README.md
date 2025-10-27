@@ -75,7 +75,17 @@ Container Apps currently run on linux/amd64 – make sure the backend image is p
 
 1. Upload frontend assets to the storage account (from repo root):
    ```bash
-   ./scripts/deploy_frontend.sh --storage-account <storage_account>
+   ./scripts/deploy_frontend.sh \
+     --storage-account <storage_account> \
+     --api-url https://<container_app_fqdn>
    ```
-2. Update DNS if `custom_domain` is set (create CNAME pointing to storage endpoint).
-3. Push backend images to your registry and update `container_image` before re-running `terraform apply` for new releases.
+2. Run the backend migrations against the managed PostgreSQL instance:
+   ```bash
+   cd ../backend
+   DATABASE_URL="postgresql+psycopg://<admin_login>:<admin_password>@<postgres_fqdn>:5432/<db_name>" \
+     uv run alembic upgrade head
+   ```
+   Use the Terraform outputs or Key Vault secrets for credentials;
+   add `?sslmode=require` if Azure enforces TLS.
+3. Update DNS if `custom_domain` is set (create CNAME pointing to storage endpoint).
+4. Push backend images to your registry and update `container_image` before re-running `terraform apply` for new releases.
