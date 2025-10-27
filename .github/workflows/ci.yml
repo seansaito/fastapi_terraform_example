@@ -279,6 +279,18 @@ jobs:
             fi
           fi
 
+          if az keyvault secret show --vault-name "${key_vault}" --name "jwt-secret" >/dev/null 2>&1; then
+            if ! terraform state show azurerm_key_vault_secret.jwt >/dev/null 2>&1; then
+              terraform import azurerm_key_vault_secret.jwt "https://${key_vault}.vault.azure.net/secrets/jwt-secret"
+            fi
+          fi
+
+          if az keyvault secret show --vault-name "${key_vault}" --name "database-url" >/dev/null 2>&1; then
+            if ! terraform state show azurerm_key_vault_secret.database_url >/dev/null 2>&1; then
+              terraform import azurerm_key_vault_secret.database_url "https://${key_vault}.vault.azure.net/secrets/database-url"
+            fi
+          fi
+
           identity_principal_id=""
           if az identity show --name "${identity_name}" --resource-group "${resource_group}" >/dev/null 2>&1; then
             identity_principal_id=$(az identity show --name "${identity_name}" --resource-group "${resource_group}" --query principalId -o tsv | tr -d '\r')
