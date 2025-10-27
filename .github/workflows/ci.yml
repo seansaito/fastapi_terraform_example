@@ -73,6 +73,9 @@ jobs:
       TF_VAR_container_image: ${{ secrets.ACR_LOGIN_SERVER }}/todo-api:${{ github.sha }}
       TF_VAR_environment: ${{ secrets.TF_VAR_ENVIRONMENT }}
       TF_VAR_location: ${{ secrets.TF_VAR_LOCATION }}
+      TF_VAR_deploy_principal_object_id: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientObjectId }}
+      TF_VAR_container_app_identity_principal_id: ${{ secrets.CONTAINER_APP_MANAGED_IDENTITY_PRINCIPAL_ID }}
+      TF_VAR_additional_key_vault_access_object_ids: ${{ secrets.TF_VAR_ADDITIONAL_KV_ACCESS_IDS }}
       POSTGRES_DB_NAME: ${{ secrets.POSTGRES_DB_NAME }}
     steps:
       - uses: actions/checkout@v4

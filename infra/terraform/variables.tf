@@ -33,6 +33,24 @@ variable "tags" {
   }
 }
 
+variable "deploy_principal_object_id" {
+  description = "Object ID of the service principal or user performing deployments (used for Key Vault access policies). Defaults to the current Azure client object id when not provided."
+  type        = string
+  default     = null
+}
+
+variable "container_app_identity_principal_id" {
+  description = "Object ID of the managed identity used by the container app. Provide when the identity should have direct Key Vault access."
+  type        = string
+  default     = null
+}
+
+variable "additional_key_vault_access_object_ids" {
+  description = "Additional AAD object IDs that require Key Vault secret permissions."
+  type        = list(string)
+  default     = []
+}
+
 variable "container_image" {
   description = "Fully qualified container image for the FastAPI backend (e.g., azuretodoregistry.azurecr.io/todo-api:sha)"
   type        = string

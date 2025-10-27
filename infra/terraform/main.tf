@@ -2,6 +2,15 @@ locals {
   normalized_prefix = lower(replace(var.prefix, "[^a-z0-9]", ""))
   name_suffix       = var.environment
   common_tags       = merge(var.tags, { environment = var.environment })
+  key_vault_static_access_object_ids = distinct(
+    compact(
+      concat(
+        [coalesce(var.deploy_principal_object_id, data.azurerm_client_config.current.object_id)],
+        var.container_app_identity_principal_id == null || var.container_app_identity_principal_id == "" ? [] : [var.container_app_identity_principal_id],
+        var.additional_key_vault_access_object_ids
+      )
+    )
+  )
 }
 
 data "azurerm_client_config" "current" {}
@@ -45,22 +54,44 @@ module "key_vault" {
   tags                = local.common_tags
 }
 
-resource "azurerm_role_assignment" "key_vault_secrets_officer" {
-  scope                = module.key_vault.id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
-}
-
-resource "time_sleep" "wait_for_key_vault_rbac" {
-  depends_on      = [azurerm_role_assignment.key_vault_secrets_officer]
-  create_duration = "120s"
-}
-
 resource "azurerm_user_assigned_identity" "container_app" {
   name                = "uai-${local.normalized_prefix}-${local.name_suffix}"
   location            = var.location
   resource_group_name = module.resource_group.name
   tags                = local.common_tags
+}
+
+resource "azurerm_key_vault_access_policy" "static" {
+  for_each     = toset(local.key_vault_static_access_object_ids)
+  key_vault_id = module.key_vault.id
+
+  tenant_id = var.tenant_id
+  object_id = each.value
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete",
+    "Purge"
+  ]
+}
+
+resource "azurerm_key_vault_access_policy" "container_app" {
+  key_vault_id = module.key_vault.id
+  tenant_id    = var.tenant_id
+  object_id    = azurerm_user_assigned_identity.container_app.principal_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set"
+  ]
+}
+
+resource "time_sleep" "wait_for_key_vault_access_policy" {
+  depends_on      = [azurerm_key_vault_access_policy.container_app, azurerm_key_vault_access_policy.static]
+  create_duration = "60s"
 }
 
 resource "azurerm_role_assignment" "container_app_acr" {
@@ -90,14 +121,14 @@ resource "azurerm_key_vault_secret" "jwt" {
   name         = "jwt-secret"
   value        = random_password.jwt.result
   key_vault_id = module.key_vault.id
-  depends_on   = [time_sleep.wait_for_key_vault_rbac]
+  depends_on   = [time_sleep.wait_for_key_vault_access_policy]
 }
 
 resource "azurerm_key_vault_secret" "database_url" {
   name         = "database-url"
   value        = module.postgres.connection_string
   key_vault_id = module.key_vault.id
-  depends_on   = [time_sleep.wait_for_key_vault_rbac]
+  depends_on   = [time_sleep.wait_for_key_vault_access_policy]
 }
 
 module "static_site" {
