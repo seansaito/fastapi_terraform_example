@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(..., alias="JWT_SECRET")
     access_token_expire_minutes: int = Field(60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     cors_origins: Union[List[str], str] = Field(default="http://localhost:5173", alias="CORS_ORIGINS")
-    cors_origin_regex: Optional[str] = Field(default=None, alias="CORS_ORIGIN_REGEX")
+    cors_origin_regex: Optional[str] = Field(
+        default=r"^https://[a-z0-9]+\.z[0-9]+\.web\.core\.windows\.net$",
+        alias="CORS_ORIGIN_REGEX",
+    )
 
     class Config:
         env_file = ".env"
